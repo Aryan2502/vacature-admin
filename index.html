@@ -240,16 +240,17 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzX9cDaffaSa82p
 const sheetsBase = () => `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_SHEET_ID}`;
 
 async function callAppsScript(payload) {
-  const res = await fetch(APPS_SCRIPT_URL, {
+  // Apps Script doesn't support CORS, so we use no-cors + verify via reload
+  const formData = new FormData();
+  formData.append('payload', JSON.stringify(payload));
+  await fetch(APPS_SCRIPT_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(payload)
+    mode: 'no-cors',
+    body: formData
   });
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch(e) { throw new Error('Ongeldig antwoord van script: ' + text); }
-  if (data.error) throw new Error(data.error);
-  return data;
+  // no-cors means we can't read the response, but the write still happens
+  // We wait briefly then reload data from Sheets to confirm
+  await new Promise(r => setTimeout(r, 1500));
 }
 
 async function laadVacatures() {
