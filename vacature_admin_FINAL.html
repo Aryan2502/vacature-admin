@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vacature Beheer</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .field-label { @apply block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1; }
+  input[type=text], input[type=number], select, textarea {
+    width: 100%; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 8px;
+    font-size: 14px; outline: none; transition: border-color .15s;
+    background: #f9fafb;
+  }
+  input:focus, select:focus, textarea:focus { border-color: #000; background: #fff; }
+  .btn { padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
+  .btn-black { background: #000; color: #fff; }
+  .btn-black:hover { background: #222; }
+  .btn-outline { border: 1px solid #d1d5db; color: #374151; background: #fff; }
+  .btn-outline:hover { border-color: #000; }
+  .btn-red { background: #fee2e2; color: #dc2626; }
+  .btn-red:hover { background: #fecaca; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 20px 24px; margin-bottom: 12px; }
+  .tag { display:inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #f3f4f6; color: #374151; }
+  #overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:50; display:flex; align-items:center; justify-content:center; padding:16px; }
+  #modal { background:#fff; border-radius:20px; width:100%; max-width:760px; max-height:90vh; overflow-y:auto; padding:32px; position:relative; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+  @media(max-width:600px){ .grid-2,.grid-3{ grid-template-columns:1fr; } }
+  #login-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; background:#f9fafb; }
+  #app { display:none; }
+  .section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#9ca3af; margin-bottom:8px; margin-top:20px; }
+  .section-title:first-of-type { margin-top:0; }
+  .spinner { width:20px; height:20px; border:2px solid #e5e7eb; border-top-color:#000; border-radius:50%; animation:spin .6s linear infinite; display:inline-block; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .toast { position:fixed; bottom:24px; right:24px; background:#000; color:#fff; padding:12px 20px; border-radius:10px; font-size:13px; font-weight:500; z-index:100; opacity:0; transition:opacity .2s; pointer-events:none; }
+  .toast.show { opacity:1; }
+  .contract-section { display:none; }
+  .contract-section.active { display:grid; }
+</style>
+</head>
+<body class="bg-gray-50">
+
+<!-- ─── Login ──────────────────────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div style="background:#fff; border-radius:20px; padding:40px 48px; width:100%; max-width:400px; box-shadow:0 4px 24px rgba(0,0,0,.08); text-align:center;">
+    <div style="font-size:28px; margin-bottom:8px;">🔒</div>
+    <h1 style="font-size:20px; font-weight:700; margin-bottom:4px;">Vacature Beheer</h1>
+    <p style="font-size:13px; color:#6b7280; margin-bottom:24px;">Voer het wachtwoord in om verder te gaan</p>
+    <input id="pw-input" type="password" placeholder="Wachtwoord" style="margin-bottom:12px; text-align:center;">
+    <div id="pw-error" style="color:#dc2626; font-size:13px; margin-bottom:8px; display:none;">Onjuist wachtwoord</div>
+    <button class="btn btn-black" style="width:100%;" onclick="checkLogin()">Inloggen</button>
+  </div>
+</div>
+
+<!-- ─── App ───────────────────────────────────────────────────────────────── -->
+<div id="app">
+  <div style="max-width:900px; margin:0 auto; padding:40px 24px;">
+
+    <!-- Header -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:32px;">
+      <div>
+        <h1 style="font-size:24px; font-weight:800; margin:0;">Vacature Beheer</h1>
+        <p id="subtitle" style="font-size:13px; color:#6b7280; margin:4px 0 0;"></p>
+      </div>
+      <button class="btn btn-black" onclick="openModal(null)">+ Nieuwe vacature</button>
+    </div>
+
+    <!-- Config warning -->
+    <div id="config-warning" style="background:#fef3c7; border:1px solid #fcd34d; border-radius:12px; padding:16px 20px; margin-bottom:24px; font-size:13px; color:#92400e; display:none;">
+      ⚠️ Vergeet niet <strong>SHEETS_API_KEY</strong>, <strong>SHEETS_SHEET_ID</strong> en <strong>ADMIN_WACHTWOORD</strong> bovenin het script in te vullen.
+    </div>
+
+    <!-- Vacature list -->
+    <div id="vacature-list"><div class="card" style="text-align:center; color:#9ca3af; font-size:14px; padding:40px;"><div class="spinner" style="margin:0 auto 12px;"></div><br>Vacatures laden...</div></div>
+
+  </div>
+</div>
+
+<!-- ─── Modal (add/edit) ───────────────────────────────────────────────────── -->
+<div id="overlay" style="display:none;" onclick="if(event.target===this)closeModal()">
+  <div id="modal">
+    <button onclick="closeModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;">✕</button>
+    <h2 id="modal-title" style="font-size:20px; font-weight:800; margin-bottom:24px;"></h2>
+
+    <div class="section-title">Basis</div>
+    <div class="grid-2" style="margin-bottom:16px;">
+      <div><label class="field-label">Functietitel *</label><input id="f-titel" type="text" placeholder="bv. Senior Developer"></div>
+      <div><label class="field-label">Functiegroep *</label>
+        <select id="f-functie">
+          <option value="">Kies...</option>
+          <option>Developer</option><option>Marketing</option><option>Customer Service</option>
+          <option>Human Resources</option><option>Design</option><option>Finance</option>
+          <option>Sales</option><option>Operations</option><option>Other</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-title">Locatie & Werkvorm</div>
+    <div class="grid-3" style="margin-bottom:16px;">
+      <div><label class="field-label">Locatie *</label>
+        <select id="f-locatie">
+          <option value="">Kies...</option>
+          <option>Nederland</option><option>België</option><option>Wereldwijd</option>
+        </select>
+      </div>
+      <div><label class="field-label">Sublocatie</label><input id="f-sublocatie" type="text" placeholder="bv. Amsterdam"></div>
+      <div><label class="field-label">Werkvorm *</label>
+        <select id="f-werkvorm">
+          <option value="">Kies...</option>
+          <option>Remote</option><option>Hybride</option><option>Kantoor</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-title">Contract</div>
+    <div class="grid-2" style="margin-bottom:12px;">
+      <div><label class="field-label">Contracttype *</label>
+        <select id="f-contract" onchange="updateContractFields()">
+          <option value="">Kies...</option>
+          <option>Freelance/ZZP</option><option>Loondienst</option>
+        </select>
+      </div>
+      <div><label class="field-label">Duur *</label>
+        <select id="f-duur">
+          <option value="">Kies...</option>
+          <option>&lt; 1 maand</option><option>1-3 maanden</option><option>3-6 maanden</option>
+          <option>6-12 maanden</option><option>&gt; 1 jaar</option><option>Onbepaald</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Freelance fields -->
+    <div id="freelance-fields" class="contract-section grid-3" style="margin-bottom:12px;">
+      <div><label class="field-label">Freelance type</label>
+        <select id="f-freelanceType">
+          <option value="">Kies...</option>
+          <option value="Hourly">Uurtarief</option><option value="Fixed">Fixed price</option>
+        </select>
+      </div>
+      <div><label class="field-label">Tarief min (€/u)</label><input id="f-tariefMin" type="number" placeholder="0"></div>
+      <div><label class="field-label">Tarief max (€/u)</label><input id="f-tariefMax" type="number" placeholder="0"></div>
+      <div style="grid-column:1/-1"><label class="field-label">Fixed bedrag (€)</label><input id="f-fixedBedrag" type="number" placeholder="0"></div>
+    </div>
+
+    <!-- Loondienst fields -->
+    <div id="loondienst-fields" class="contract-section grid-3" style="margin-bottom:12px;">
+      <div><label class="field-label">Loondienst type</label>
+        <select id="f-loondienstType">
+          <option value="">Kies...</option>
+          <option value="Vast">Vast</option><option value="Tijdelijk">Tijdelijk</option>
+        </select>
+      </div>
+      <div><label class="field-label">Salaris min (€/m)</label><input id="f-salarisMin" type="number" placeholder="0"></div>
+      <div><label class="field-label">Salaris max (€/m)</label><input id="f-salarisMax" type="number" placeholder="0"></div>
+    </div>
+
+    <div class="section-title">Uren & Beschikbaarheid</div>
+    <div class="grid-2" style="margin-bottom:16px;">
+      <div><label class="field-label">Uren min / week</label><input id="f-urenMin" type="number" placeholder="0"></div>
+      <div><label class="field-label">Uren max / week</label><input id="f-urenMax" type="number" placeholder="0"></div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label class="field-label">Beschikbare dagen</label>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;">
+        <label id="dag-ma" style="cursor:pointer;"><input type="checkbox" value="Maandag" class="dag-cb" style="display:none;"><span class="dag-btn tag">Ma</span></label>
+        <label id="dag-di" style="cursor:pointer;"><input type="checkbox" value="Dinsdag" class="dag-cb" style="display:none;"><span class="dag-btn tag">Di</span></label>
+        <label id="dag-wo" style="cursor:pointer;"><input type="checkbox" value="Woensdag" class="dag-cb" style="display:none;"><span class="dag-btn tag">Wo</span></label>
+        <label id="dag-do" style="cursor:pointer;"><input type="checkbox" value="Donderdag" class="dag-cb" style="display:none;"><span class="dag-btn tag">Do</span></label>
+        <label id="dag-vr" style="cursor:pointer;"><input type="checkbox" value="Vrijdag" class="dag-cb" style="display:none;"><span class="dag-btn tag">Vr</span></label>
+        <label id="dag-za" style="cursor:pointer;"><input type="checkbox" value="Zaterdag" class="dag-cb" style="display:none;"><span class="dag-btn tag">Za</span></label>
+        <label id="dag-zo" style="cursor:pointer;"><input type="checkbox" value="Zondag" class="dag-cb" style="display:none;"><span class="dag-btn tag">Zo</span></label>
+      </div>
+    </div>
+
+    <div class="section-title">Talen & Kanalen</div>
+    <div class="grid-2" style="margin-bottom:16px;">
+      <div>
+        <label class="field-label">Talen (komma-gescheiden)</label>
+        <input id="f-talen" type="text" placeholder="bv. Nederlands, Engels">
+      </div>
+      <div>
+        <label class="field-label">Kanalen (komma-gescheiden)</label>
+        <input id="f-kanalen" type="text" placeholder="bv. Chat, Email">
+      </div>
+    </div>
+
+    <div class="section-title">Inhoud</div>
+    <div style="margin-bottom:12px;"><label class="field-label">Beschrijving *</label><textarea id="f-beschrijving" rows="3" placeholder="Beschrijving van de vacature..."></textarea></div>
+    <div style="margin-bottom:12px;"><label class="field-label">Eisen (één per regel)</label><textarea id="f-eisen" rows="3" placeholder="Eis 1&#10;Eis 2&#10;Eis 3"></textarea></div>
+    <div style="margin-bottom:24px;"><label class="field-label">Dit krijg je (één per regel)</label><textarea id="f-aanbod" rows="3" placeholder="Voordeel 1&#10;Voordeel 2&#10;Voordeel 3"></textarea></div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px;">
+      <button class="btn btn-outline" onclick="closeModal()">Annuleren</button>
+      <button id="save-btn" class="btn btn-black" onclick="slaVacatureOp()">Opslaan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Toast ─────────────────────────────────────────────────────────────── -->
+<div id="toast" class="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+//  !! VASTE IN TE VULLEN WAARDEN !!
+// ════════════════════════════════════════════════════════════════
+const SHEETS_API_KEY   = 'AIzaSyDZqHcdR8t9pm_thalFrsKyCbGuydHXIdM';
+const SHEETS_SHEET_ID  = '187kCiKglEKYnvoppnAfQVaQMRNlFAqXPB0OuD-bhyGM';
+const ADMIN_WACHTWOORD = 'degoudenbrug2024';
+const SHEET_NAME       = 'Vacatures';
+// ════════════════════════════════════════════════════════════════
+
+const HEADERS = ['id','titel','functie','locatie','sublocatie','werkvorm','talen','kanalen',
+  'contract','freelanceType','loondienstType','tariefMin','tariefMax','fixedBedrag',
+  'salarisMin','salarisMax','urenMin','urenMax','duur','dagenBeschikbaar',
+  'beschrijving','eisen','aanbod'];
+
+let vacatures = [];
+let editingId = null;
+
+// ─── Login ───────────────────────────────────────────────────────────────────
+function checkLogin() {
+  const pw = document.getElementById('pw-input').value;
+  if (pw === ADMIN_WACHTWOORD) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    if (SHEETS_API_KEY === 'UW_API_KEY_HIER') document.getElementById('config-warning').style.display = 'block';
+    laadVacatures();
+  } else {
+    document.getElementById('pw-error').style.display = 'block';
+  }
+}
+document.getElementById('pw-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkLogin(); });
+
+// ─── API helpers ─────────────────────────────────────────────────────────────
+// ─── Apps Script Web App URL (ingevuld na stap 3 van de gids) ────────────────
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzX9cDaffaSa82pwEbxHQVvjjqsYBbFsVN8sPtsHC9hl_sLc_EXlckKqtDGOc3t9lRU/exec';
+
+const sheetsBase = () => `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_SHEET_ID}`;
+
+async function callAppsScript(payload) {
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  });
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch(e) { throw new Error('Ongeldig antwoord van script: ' + text); }
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+async function laadVacatures() {
+  try {
+    const url = `${sheetsBase()}/values/${encodeURIComponent(SHEET_NAME)}!A1:Z1000?key=${SHEETS_API_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const rows = data.values || [];
+    if (rows.length === 0) { vacatures = []; renderLijst(); return; }
+    const headers = rows[0];
+    vacatures = rows.slice(1).map((row, i) => rowNaarObject(row, headers, i + 2));
+    renderLijst();
+  } catch(e) {
+    toonToast('Fout bij laden: ' + e.message, true);
+    document.getElementById('vacature-list').innerHTML =
+      `<div class="card" style="color:#dc2626;font-size:13px;">Kon niet laden: ${e.message}</div>`;
+  }
+}
+
+function rowNaarObject(row, headers, rowIndex) {
+  const get = col => { const i = headers.indexOf(col); return i !== -1 ? (row[i] || '') : ''; };
+  const getArr = col => { const v = get(col); return v ? v.split('|').map(s => s.trim()).filter(Boolean) : []; };
+  return {
+    _row: rowIndex,
+    id: parseInt(get('id')) || 0,
+    titel: get('titel'), functie: get('functie'), locatie: get('locatie'),
+    sublocatie: get('sublocatie'), werkvorm: get('werkvorm'),
+    talen: getArr('talen'), kanalen: getArr('kanalen'),
+    contract: get('contract'), freelanceType: get('freelanceType'),
+    loondienstType: get('loondienstType'),
+    tariefMin: parseFloat(get('tariefMin')) || 0, tariefMax: parseFloat(get('tariefMax')) || 0,
+    fixedBedrag: parseFloat(get('fixedBedrag')) || 0,
+    salarisMin: parseFloat(get('salarisMin')) || 0, salarisMax: parseFloat(get('salarisMax')) || 0,
+    urenMin: parseFloat(get('urenMin')) || 0, urenMax: parseFloat(get('urenMax')) || 0,
+    duur: get('duur'), dagenBeschikbaar: getArr('dagenBeschikbaar'),
+    beschrijving: get('beschrijving'), eisen: getArr('eisen'), aanbod: getArr('aanbod'),
+  };
+}
+
+function objectNaarRow(v) {
+  return HEADERS.map(h => {
+    const val = v[h];
+    if (Array.isArray(val)) return val.join('|');
+    return val !== undefined && val !== null ? String(val) : '';
+  });
+}
+
+async function schrijfRij(rowIndex, rowData) {
+  await callAppsScript({ action: 'update', row: rowIndex, data: rowData });
+}
+
+async function voegRijToe(rowData) {
+  await callAppsScript({ action: 'append', data: rowData });
+}
+
+async function verwijderRij(rowIndex) {
+  await callAppsScript({ action: 'delete', row: rowIndex });
+}
+
+// ─── Render list ─────────────────────────────────────────────────────────────
+function renderLijst() {
+  const el = document.getElementById('vacature-list');
+  const sub = document.getElementById('subtitle');
+  sub.textContent = vacatures.length + ' vacature' + (vacatures.length !== 1 ? 's' : '');
+  if (vacatures.length === 0) {
+    el.innerHTML = '<div class="card" style="text-align:center;color:#9ca3af;font-size:14px;padding:40px;">Nog geen vacatures. Klik op "+ Nieuwe vacature" om te beginnen.</div>';
+    return;
+  }
+  el.innerHTML = vacatures.map(v => `
+    <div class="card" style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:200px;">
+        <div style="font-weight:700; font-size:16px; margin-bottom:4px;">${v.titel}</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;">
+          <span class="tag">${v.functie || '–'}</span>
+          <span class="tag">${v.locatie || '–'}${v.sublocatie ? ' (' + v.sublocatie + ')' : ''}</span>
+          <span class="tag" style="background:#eff6ff;color:#2563eb;">${v.werkvorm || '–'}</span>
+          <span class="tag" style="background:#f0fdf4;color:#16a34a;">${v.contract || '–'}</span>
+          ${v.duur ? `<span class="tag" style="background:#faf5ff;color:#7c3aed;">${v.duur}</span>` : ''}
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; flex-shrink:0;">
+        <button class="btn btn-outline" onclick="openModal(${v.id})">Bewerken</button>
+        <button class="btn btn-red" onclick="verwijderVacature(${v.id})">Verwijderen</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── Modal ───────────────────────────────────────────────────────────────────
+function openModal(id) {
+  editingId = id;
+  document.getElementById('modal-title').textContent = id ? 'Vacature bewerken' : 'Nieuwe vacature';
+  resetForm();
+  if (id) {
+    const v = vacatures.find(x => x.id === id);
+    if (v) vulFormIn(v);
+  }
+  updateContractFields();
+  document.getElementById('overlay').style.display = 'flex';
+  document.getElementById('modal').scrollTop = 0;
+}
+
+function closeModal() {
+  document.getElementById('overlay').style.display = 'none';
+  editingId = null;
+}
+
+function resetForm() {
+  ['f-titel','f-sublocatie','f-talen','f-kanalen','f-beschrijving','f-eisen','f-aanbod',
+   'f-tariefMin','f-tariefMax','f-fixedBedrag','f-salarisMin','f-salarisMax','f-urenMin','f-urenMax']
+    .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  ['f-functie','f-locatie','f-werkvorm','f-contract','f-duur','f-freelanceType','f-loondienstType']
+    .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  document.querySelectorAll('.dag-cb').forEach(cb => {
+    cb.checked = false;
+    cb.parentElement.querySelector('.dag-btn').style.background = '';
+    cb.parentElement.querySelector('.dag-btn').style.color = '';
+  });
+}
+
+function vulFormIn(v) {
+  const set = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
+  set('f-titel', v.titel); set('f-functie', v.functie); set('f-locatie', v.locatie);
+  set('f-sublocatie', v.sublocatie); set('f-werkvorm', v.werkvorm);
+  set('f-contract', v.contract); set('f-duur', v.duur);
+  set('f-freelanceType', v.freelanceType); set('f-loondienstType', v.loondienstType);
+  set('f-tariefMin', v.tariefMin || ''); set('f-tariefMax', v.tariefMax || '');
+  set('f-fixedBedrag', v.fixedBedrag || '');
+  set('f-salarisMin', v.salarisMin || ''); set('f-salarisMax', v.salarisMax || '');
+  set('f-urenMin', v.urenMin || ''); set('f-urenMax', v.urenMax || '');
+  set('f-talen', (v.talen || []).join(', '));
+  set('f-kanalen', (v.kanalen || []).join(', '));
+  set('f-beschrijving', v.beschrijving);
+  set('f-eisen', (v.eisen || []).join('\n'));
+  set('f-aanbod', (v.aanbod || []).join('\n'));
+  document.querySelectorAll('.dag-cb').forEach(cb => {
+    const checked = (v.dagenBeschikbaar || []).includes(cb.value);
+    cb.checked = checked;
+    const btn = cb.parentElement.querySelector('.dag-btn');
+    btn.style.background = checked ? '#000' : '';
+    btn.style.color = checked ? '#fff' : '';
+  });
+}
+
+// Dag toggle styling
+document.querySelectorAll('.dag-cb').forEach(cb => {
+  cb.parentElement.addEventListener('click', () => {
+    setTimeout(() => {
+      const btn = cb.parentElement.querySelector('.dag-btn');
+      btn.style.background = cb.checked ? '#000' : '';
+      btn.style.color = cb.checked ? '#fff' : '';
+    }, 0);
+  });
+});
+
+function updateContractFields() {
+  const v = document.getElementById('f-contract').value;
+  document.getElementById('freelance-fields').classList.toggle('active', v === 'Freelance/ZZP');
+  document.getElementById('loondienst-fields').classList.toggle('active', v === 'Loondienst');
+}
+
+// ─── Save ────────────────────────────────────────────────────────────────────
+async function slaVacatureOp() {
+  const titel = document.getElementById('f-titel').value.trim();
+  const functie = document.getElementById('f-functie').value;
+  const beschrijving = document.getElementById('f-beschrijving').value.trim();
+  if (!titel || !functie || !beschrijving) { toonToast('Vul tenminste titel, functiegroep en beschrijving in.', true); return; }
+
+  const dagen = Array.from(document.querySelectorAll('.dag-cb:checked')).map(cb => cb.value);
+  const splitLines = id => document.getElementById(id).value.split('\n').map(s => s.trim()).filter(Boolean);
+  const splitComma = id => document.getElementById(id).value.split(',').map(s => s.trim()).filter(Boolean);
+
+  const obj = {
+    id: editingId || (Math.max(0, ...vacatures.map(v => v.id)) + 1),
+    titel,
+    functie,
+    locatie:        document.getElementById('f-locatie').value,
+    sublocatie:     document.getElementById('f-sublocatie').value.trim(),
+    werkvorm:       document.getElementById('f-werkvorm').value,
+    talen:          splitComma('f-talen'),
+    kanalen:        splitComma('f-kanalen'),
+    contract:       document.getElementById('f-contract').value,
+    freelanceType:  document.getElementById('f-freelanceType').value,
+    loondienstType: document.getElementById('f-loondienstType').value,
+    tariefMin:      parseFloat(document.getElementById('f-tariefMin').value) || 0,
+    tariefMax:      parseFloat(document.getElementById('f-tariefMax').value) || 0,
+    fixedBedrag:    parseFloat(document.getElementById('f-fixedBedrag').value) || 0,
+    salarisMin:     parseFloat(document.getElementById('f-salarisMin').value) || 0,
+    salarisMax:     parseFloat(document.getElementById('f-salarisMax').value) || 0,
+    urenMin:        parseFloat(document.getElementById('f-urenMin').value) || 0,
+    urenMax:        parseFloat(document.getElementById('f-urenMax').value) || 0,
+    duur:           document.getElementById('f-duur').value,
+    dagenBeschikbaar: dagen,
+    beschrijving,
+    eisen:          splitLines('f-eisen'),
+    aanbod:         splitLines('f-aanbod'),
+  };
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    const row = objectNaarRow(obj);
+    if (editingId) {
+      const existing = vacatures.find(v => v.id === editingId);
+      await schrijfRij(existing._row, row);
+      toonToast('Vacature bijgewerkt ✓');
+    } else {
+      // Check if headers row exists, if not write it first
+      const checkUrl = `${sheetsBase()}/values/${SHEET_NAME}!A1?key=${SHEETS_API_KEY}`;
+      const checkRes = await fetch(checkUrl);
+      const checkData = await checkRes.json();
+      if (!checkData.values || checkData.values[0][0] !== 'id') {
+        await schrijfRij(1, HEADERS);
+      }
+      await voegRijToe(row);
+      toonToast('Vacature toegevoegd ✓');
+    }
+    closeModal();
+    await laadVacatures();
+  } catch(e) {
+    toonToast('Fout bij opslaan: ' + e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Opslaan';
+  }
+}
+
+// ─── Delete ──────────────────────────────────────────────────────────────────
+async function verwijderVacature(id) {
+  const v = vacatures.find(x => x.id === id);
+  if (!v) return;
+  if (!confirm(`Vacature "${v.titel}" verwijderen? Dit kan niet ongedaan worden gemaakt.`)) return;
+  try {
+    await verwijderRij(v._row);
+    toonToast('Vacature verwijderd');
+    await laadVacatures();
+  } catch(e) {
+    toonToast('Fout bij verwijderen: ' + e.message, true);
+  }
+}
+
+// ─── Toast ───────────────────────────────────────────────────────────────────
+function toonToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = isError ? '#dc2626' : '#000';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
