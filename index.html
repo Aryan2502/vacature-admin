@@ -28,6 +28,9 @@
   .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
   @media(max-width:600px){ .grid-2,.grid-3{ grid-template-columns:1fr; } }
+  .multi-tag { display:inline-flex;align-items:center;gap:4px;background:#000;color:#fff;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:500; }
+  .multi-tag button { background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0;opacity:.7; }
+  .multi-tag button:hover { opacity:1; }
   #login-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; background:#f9fafb; }
   #app { display:none; }
   .section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#9ca3af; margin-bottom:8px; margin-top:20px; }
@@ -88,24 +91,32 @@
     <div class="grid-2" style="margin-bottom:16px;">
       <div><label class="field-label">Functietitel *</label><input id="f-titel" type="text" placeholder="bv. Senior Developer"></div>
       <div><label class="field-label">Functiegroep *</label>
-        <select id="f-functie">
+        <select id="f-functie" onchange="toggleOther('f-functie','f-functie-other')">
           <option value="">Kies...</option>
           <option>Developer</option><option>Marketing</option><option>Customer Service</option>
           <option>Human Resources</option><option>Design</option><option>Finance</option>
-          <option>Sales</option><option>Operations</option><option>Other</option>
+          <option>Sales</option><option>Operations</option><option value="Other">Other (zelf invullen)</option>
         </select>
+        <input id="f-functie-other" type="text" placeholder="Vul functiegroep in..." style="display:none;margin-top:6px;">
       </div>
     </div>
 
     <div class="section-title">Locatie & Werkvorm</div>
     <div class="grid-3" style="margin-bottom:16px;">
-      <div><label class="field-label">Locatie *</label>
-        <select id="f-locatie">
-          <option value="">Kies...</option>
+      <div><label class="field-label">Land *</label>
+        <select id="f-locatie" onchange="updateSublocaties()">
+          <option value="">Kies land...</option>
           <option>Nederland</option><option>België</option><option>Spanje</option><option>Wereldwijd</option>
+          <option value="Other">Other (zelf invullen)</option>
         </select>
+        <input id="f-locatie-other" type="text" placeholder="Vul land in..." style="display:none;margin-top:6px;">
       </div>
-      <div><label class="field-label">Sublocatie</label><input id="f-sublocatie" type="text" placeholder="bv. Amsterdam"></div>
+      <div><label class="field-label">Stad / Regio</label>
+        <select id="f-sublocatie-select" style="display:none;" onchange="toggleOther('f-sublocatie-select','f-sublocatie')">
+          <option value="">Kies stad...</option>
+        </select>
+        <input id="f-sublocatie" type="text" placeholder="bv. Amsterdam" style="margin-top:0;">
+      </div>
       <div><label class="field-label">Werkvorm *</label>
         <select id="f-werkvorm">
           <option value="">Kies...</option>
@@ -177,12 +188,39 @@
     <div class="section-title">Talen & Kanalen</div>
     <div class="grid-2" style="margin-bottom:16px;">
       <div>
-        <label class="field-label">Talen (komma-gescheiden)</label>
-        <input id="f-talen" type="text" placeholder="bv. Nederlands, Engels">
+        <label class="field-label">Talen</label>
+        <div id="f-talen-container" style="border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;padding:8px;min-height:42px;">
+          <div id="f-talen-tags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px;"></div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <select id="f-talen-select" style="flex:1;border:none;background:transparent;font-size:13px;outline:none;padding:2px 0;" onchange="voegTaalToe()">
+              <option value="">+ Taal toevoegen...</option>
+              <option>Nederlands</option><option>Engels</option><option>Spaans</option>
+              <option>Frans</option><option>Duits</option><option>Portugees</option>
+              <option>Arabisch</option><option>Chinees</option>
+              <option value="Other">Other (zelf invullen)</option>
+            </select>
+            <input id="f-talen-input" type="text" placeholder="Taal..." style="display:none;flex:1;border:none;background:transparent;font-size:13px;outline:none;" onkeydown="if(event.key==='Enter'){event.preventDefault();voegCustomTaalToe();}">
+            <button type="button" id="f-talen-add-btn" style="display:none;background:#000;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer;" onclick="voegCustomTaalToe()">+</button>
+          </div>
+        </div>
+        <input type="hidden" id="f-talen">
       </div>
       <div>
-        <label class="field-label">Kanalen (komma-gescheiden)</label>
-        <input id="f-kanalen" type="text" placeholder="bv. Chat, Email">
+        <label class="field-label">Kanalen</label>
+        <div id="f-kanalen-container" style="border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;padding:8px;min-height:42px;">
+          <div id="f-kanalen-tags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px;"></div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <select id="f-kanalen-select" style="flex:1;border:none;background:transparent;font-size:13px;outline:none;padding:2px 0;" onchange="voegKanaalToe()">
+              <option value="">+ Kanaal toevoegen...</option>
+              <option>Email</option><option>Chat</option><option>Telefonie</option>
+              <option>Video</option><option>Social Media</option><option>WhatsApp</option>
+              <option value="Other">Other (zelf invullen)</option>
+            </select>
+            <input id="f-kanalen-input" type="text" placeholder="Kanaal..." style="display:none;flex:1;border:none;background:transparent;font-size:13px;outline:none;" onkeydown="if(event.key==='Enter'){event.preventDefault();voegCustomKanaalToe();}">
+            <button type="button" id="f-kanalen-add-btn" style="display:none;background:#000;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer;" onclick="voegCustomKanaalToe()">+</button>
+          </div>
+        </div>
+        <input type="hidden" id="f-kanalen">
       </div>
     </div>
 
@@ -365,6 +403,11 @@ function resetForm() {
     .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   ['f-functie','f-locatie','f-werkvorm','f-contract','f-duur','f-freelanceType','f-loondienstType']
     .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  ['f-functie-other','f-locatie-other'].forEach(id => { const el=document.getElementById(id); if(el){el.value='';el.style.display='none';} });
+  document.getElementById('f-sublocatie-select').style.display='none';
+  document.getElementById('f-sublocatie').value='';
+  document.getElementById('f-talen').value=''; document.getElementById('f-talen-tags').innerHTML='';
+  document.getElementById('f-kanalen').value=''; document.getElementById('f-kanalen-tags').innerHTML='';
   document.querySelectorAll('.dag-cb').forEach(cb => {
     cb.checked = false;
     cb.parentElement.querySelector('.dag-btn').style.background = '';
@@ -374,16 +417,24 @@ function resetForm() {
 
 function vulFormIn(v) {
   const set = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
-  set('f-titel', v.titel); set('f-functie', v.functie); set('f-locatie', v.locatie);
-  set('f-sublocatie', v.sublocatie); set('f-werkvorm', v.werkvorm);
+  set('f-titel', v.titel); set('f-functie', v.functie); const locSel = document.getElementById('f-locatie');
+  locSel.value = v.locatie || '';
+  if (!locSel.value && v.locatie) { locSel.value = 'Other'; document.getElementById('f-locatie-other').style.display='block'; document.getElementById('f-locatie-other').value = v.locatie; }
+  updateSublocaties();
+  const subSel = document.getElementById('f-sublocatie-select');
+  if (subSel.style.display !== 'none') {
+    subSel.value = v.sublocatie || '';
+    if (!subSel.value && v.sublocatie) { subSel.value = 'Other'; document.getElementById('f-sublocatie').style.display='block'; document.getElementById('f-sublocatie').value = v.sublocatie; }
+  } else { document.getElementById('f-sublocatie').value = v.sublocatie || ''; }
+  set('f-werkvorm', v.werkvorm);
   set('f-contract', v.contract); set('f-duur', v.duur);
   set('f-freelanceType', v.freelanceType); set('f-loondienstType', v.loondienstType);
   set('f-tariefMin', v.tariefMin || ''); set('f-tariefMax', v.tariefMax || '');
   set('f-fixedBedrag', v.fixedBedrag || '');
   set('f-salarisMin', v.salarisMin || ''); set('f-salarisMax', v.salarisMax || '');
   set('f-urenMin', v.urenMin || ''); set('f-urenMax', v.urenMax || '');
-  set('f-talen', (v.talen || []).join(', '));
-  set('f-kanalen', (v.kanalen || []).join(', '));
+  renderTags('f-talen-tags','f-talen', v.talen || []);
+  renderTags('f-kanalen-tags','f-kanalen', v.kanalen || []);
   set('f-beschrijving', v.beschrijving);
   set('f-eisen', (v.eisen || []).join('\n'));
   set('f-aanbod', (v.aanbod || []).join('\n'));
@@ -424,15 +475,23 @@ async function slaVacatureOp() {
   const splitLines = id => document.getElementById(id).value.split('\n').map(s => s.trim()).filter(Boolean);
   const splitComma = id => document.getElementById(id).value.split(',').map(s => s.trim()).filter(Boolean);
 
+  const functieVal = functie === 'Other' ? (document.getElementById('f-functie-other').value.trim() || 'Other') : functie;
+  const locRaw = document.getElementById('f-locatie').value;
+  const locVal = locRaw === 'Other' ? (document.getElementById('f-locatie-other').value.trim() || 'Other') : locRaw;
+  const subSelEl = document.getElementById('f-sublocatie-select');
+  const subVal = subSelEl.style.display !== 'none'
+    ? (subSelEl.value === 'Other' ? document.getElementById('f-sublocatie').value.trim() : subSelEl.value)
+    : document.getElementById('f-sublocatie').value.trim();
+
   const obj = {
     id: editingId || (Math.max(0, ...vacatures.map(v => v.id)) + 1),
     titel,
-    functie,
-    locatie:        document.getElementById('f-locatie').value,
-    sublocatie:     document.getElementById('f-sublocatie').value.trim(),
+    functie:        functieVal,
+    locatie:        locVal,
+    sublocatie:     subVal,
     werkvorm:       document.getElementById('f-werkvorm').value,
-    talen:          splitComma('f-talen'),
-    kanalen:        splitComma('f-kanalen'),
+    talen:          (document.getElementById('f-talen').value||'').split(',').map(s=>s.trim()).filter(Boolean),
+    kanalen:        (document.getElementById('f-kanalen').value||'').split(',').map(s=>s.trim()).filter(Boolean),
     contract:       document.getElementById('f-contract').value,
     freelanceType:  document.getElementById('f-freelanceType').value,
     loondienstType: document.getElementById('f-loondienstType').value,
@@ -500,6 +559,101 @@ function toonToast(msg, isError = false) {
   t.style.background = isError ? '#dc2626' : '#000';
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+const STEDEN = {
+  'Nederland': ['Amsterdam','Rotterdam','Utrecht','Den Haag','Eindhoven','Groningen'],
+  'België':    ['Brussel','Antwerpen','Gent','Brugge','Vlaanderen'],
+  'Spanje':    ['Madrid','Barcelona','Valencia','Sevilla'],
+};
+
+function updateSublocaties() {
+  const land = document.getElementById('f-locatie').value;
+  const locOther = document.getElementById('f-locatie-other');
+  const sel = document.getElementById('f-sublocatie-select');
+  const inp = document.getElementById('f-sublocatie');
+  locOther.style.display = land === 'Other' ? 'block' : 'none';
+  const steden = STEDEN[land] || [];
+  if (steden.length > 0) {
+    sel.innerHTML = '<option value="">Kies stad...</option>' +
+      steden.map(s => `<option>${s}</option>`).join('') +
+      '<option value="Other">Other (zelf invullen)</option>';
+    sel.style.display = 'block'; inp.style.display = 'none'; inp.value = '';
+  } else {
+    sel.style.display = 'none'; inp.style.display = 'block';
+  }
+}
+
+function toggleOther(selectId, inputId) {
+  const sel = document.getElementById(selectId);
+  const inp = document.getElementById(inputId);
+  if (sel.value === 'Other') { inp.style.display = 'block'; inp.focus(); }
+  else { inp.style.display = 'none'; }
+}
+
+function renderTags(containerId, hiddenId, items) {
+  const c = document.getElementById(containerId);
+  const h = document.getElementById(hiddenId);
+  if (!c) return;
+  c.innerHTML = items.map((t,i) =>
+    `<span class="multi-tag">${t}<button type="button" onclick="verwijderTag('${containerId}','${hiddenId}',${i})">×</button></span>`
+  ).join('');
+  h.value = items.join(', ');
+}
+
+function verwijderTag(containerId, hiddenId, index) {
+  const h = document.getElementById(hiddenId);
+  const items = (h.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  items.splice(index, 1);
+  renderTags(containerId, hiddenId, items);
+}
+
+function voegTaalToe() {
+  const sel = document.getElementById('f-talen-select');
+  const inp = document.getElementById('f-talen-input');
+  const btn = document.getElementById('f-talen-add-btn');
+  if (sel.value === 'Other') { sel.style.display='none'; inp.style.display='block'; btn.style.display='block'; inp.focus(); }
+  else if (sel.value) {
+    const h = document.getElementById('f-talen');
+    const items = (h.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+    if (!items.includes(sel.value)) { items.push(sel.value); renderTags('f-talen-tags','f-talen',items); }
+    sel.value = '';
+  }
+}
+
+function voegCustomTaalToe() {
+  const inp = document.getElementById('f-talen-input');
+  const sel = document.getElementById('f-talen-select');
+  const btn = document.getElementById('f-talen-add-btn');
+  const val = inp.value.trim(); if (!val) return;
+  const h = document.getElementById('f-talen');
+  const items = (h.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  if (!items.includes(val)) { items.push(val); renderTags('f-talen-tags','f-talen',items); }
+  inp.value=''; inp.style.display='none'; btn.style.display='none'; sel.style.display='block'; sel.value='';
+}
+
+function voegKanaalToe() {
+  const sel = document.getElementById('f-kanalen-select');
+  const inp = document.getElementById('f-kanalen-input');
+  const btn = document.getElementById('f-kanalen-add-btn');
+  if (sel.value === 'Other') { sel.style.display='none'; inp.style.display='block'; btn.style.display='block'; inp.focus(); }
+  else if (sel.value) {
+    const h = document.getElementById('f-kanalen');
+    const items = (h.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+    if (!items.includes(sel.value)) { items.push(sel.value); renderTags('f-kanalen-tags','f-kanalen',items); }
+    sel.value = '';
+  }
+}
+
+function voegCustomKanaalToe() {
+  const inp = document.getElementById('f-kanalen-input');
+  const sel = document.getElementById('f-kanalen-select');
+  const btn = document.getElementById('f-kanalen-add-btn');
+  const val = inp.value.trim(); if (!val) return;
+  const h = document.getElementById('f-kanalen');
+  const items = (h.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  if (!items.includes(val)) { items.push(val); renderTags('f-kanalen-tags','f-kanalen',items); }
+  inp.value=''; inp.style.display='none'; btn.style.display='none'; sel.style.display='block'; sel.value='';
 }
 </script>
 </body>
