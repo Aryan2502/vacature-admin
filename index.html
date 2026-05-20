@@ -212,7 +212,7 @@
             <select id="f-kanalen-select" style="flex:1;border:none;background:transparent;font-size:13px;outline:none;" onchange="voegItemToe('kanalen')">
               <option value="">+ Kanaal toevoegen...</option>
               <option>Email</option><option>Chat</option><option>Telefonie</option>
-              <option>Video</option><option>Social Media</option><option>WhatsApp</option>
+              <option>Videobellen</option><option>Social Media</option><option>WhatsApp</option>
               <option value="Other">Other (zelf invullen)</option>
             </select>
             <input id="f-kanalen-input" type="text" placeholder="Kanaal..." style="display:none;flex:1;border:none;background:transparent;font-size:13px;outline:none;" onkeydown="if(event.key==='Enter'){event.preventDefault();voegCustomItemToe('kanalen');}">
@@ -224,9 +224,27 @@
     </div>
 
     <div class="section-title">Inhoud</div>
-    <div style="margin-bottom:12px;"><label class="field-label">Beschrijving *</label><textarea id="f-beschrijving" rows="3" placeholder="Beschrijving van de vacature..."></textarea></div>
-    <div style="margin-bottom:12px;"><label class="field-label">Eisen (één per regel)</label><textarea id="f-eisen" rows="3" placeholder="Eis 1&#10;Eis 2&#10;Eis 3"></textarea></div>
-    <div style="margin-bottom:24px;"><label class="field-label">Dit krijg je (één per regel)</label><textarea id="f-aanbod" rows="3" placeholder="Voordeel 1&#10;Voordeel 2&#10;Voordeel 3"></textarea></div>
+    <div style="margin-bottom:24px;">
+  <label class="field-label">Beschrijving *</label>
+  <div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+    <div style="display:flex;gap:4px;padding:6px 8px;background:#f9fafb;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;">
+      <button type="button" onclick="execCmd('bold')" title="Vet" style="font-weight:700;padding:2px 8px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;">B</button>
+      <button type="button" onclick="execCmd('italic')" title="Cursief" style="font-style:italic;padding:2px 8px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;">I</button>
+      <button type="button" onclick="execCmd('underline')" title="Onderstrepen" style="text-decoration:underline;padding:2px 8px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;">U</button>
+      <select onchange="execCmdVal('fontSize',this.value);this.value=''" style="padding:2px 4px;border:1px solid #d1d5db;border-radius:4px;background:#fff;font-size:12px;cursor:pointer;">
+        <option value="">Grootte</option>
+        <option value="3">Normaal</option>
+        <option value="4">Groot</option>
+        <option value="5">Groter</option>
+      </select>
+      <button type="button" onclick="execCmd('insertUnorderedList')" title="Lijst" style="padding:2px 8px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;">• Lijst</button>
+      <button type="button" onclick="execCmd('removeFormat')" title="Opmaak verwijderen" style="padding:2px 8px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;font-size:11px;">✕ Opmaak</button>
+    </div>
+    <div id="f-beschrijving" contenteditable="true" style="min-height:100px;padding:10px 12px;font-size:14px;outline:none;" placeholder="Beschrijving van de vacature..."></div>
+  </div>
+</div>
+    
+    
 
     <div style="display:flex; justify-content:flex-end; gap:10px;">
       <button class="btn btn-outline" onclick="closeModal()">Annuleren</button>
@@ -397,7 +415,7 @@ function closeModal() {
 }
 
 function resetForm() {
-  ['f-titel','f-sublocatie','f-talen','f-kanalen','f-beschrijving','f-eisen','f-aanbod',
+  ['f-titel','f-sublocatie','f-talen','f-kanalen',
    'f-tariefMin','f-tariefMax','f-fixedBedrag','f-salarisMin','f-salarisMax','f-urenMin','f-urenMax']
     .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   ['f-functie','f-locatie','f-werkvorm','f-contract','f-duur','f-freelanceType','f-loondienstType']
@@ -405,7 +423,7 @@ function resetForm() {
   ['f-functie-other','f-locatie-other'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';el.style.display='none';}});
   const ss=document.getElementById('f-sublocatie-select');if(ss){ss.style.display='none';ss.innerHTML='';}
   document.getElementById('f-sublocatie').value='';
-  document.getElementById('f-talen').value='';document.getElementById('f-talen-tags').innerHTML='';
+  document.getElementById('f-beschrijving').innerHTML='';document.getElementById('f-talen').value='';document.getElementById('f-talen-tags').innerHTML='';
   document.getElementById('f-kanalen').value='';document.getElementById('f-kanalen-tags').innerHTML='';
   document.querySelectorAll('.dag-cb').forEach(cb => {
     cb.checked = false;
@@ -432,9 +450,7 @@ function vulFormIn(v) {
   set('f-urenMin', v.urenMin || ''); set('f-urenMax', v.urenMax || '');
   renderTags('f-talen-tags','f-talen',v.talen||[]);
   renderTags('f-kanalen-tags','f-kanalen',v.kanalen||[]);
-  set('f-beschrijving', v.beschrijving);
-  set('f-eisen', (v.eisen || []).join('\n'));
-  set('f-aanbod', (v.aanbod || []).join('\n'));
+  document.getElementById('f-beschrijving').innerHTML = v.beschrijving || '';
   document.querySelectorAll('.dag-cb').forEach(cb => {
     const checked = (v.dagenBeschikbaar || []).includes(cb.value);
     cb.checked = checked;
@@ -465,8 +481,8 @@ function updateContractFields() {
 async function slaVacatureOp() {
   const titel = document.getElementById('f-titel').value.trim();
   const functie = document.getElementById('f-functie').value;
-  const beschrijving = document.getElementById('f-beschrijving').value.trim();
-  if (!titel || !functie || !beschrijving) { toonToast('Vul tenminste titel, functiegroep en beschrijving in.', true); return; }
+  const beschrijving = document.getElementById('f-beschrijving').innerHTML.trim();
+  if (!titel || !functie || !beschrijving || beschrijving==='<br>') { toonToast('Vul tenminste titel, functiegroep en beschrijving in.', true); return; }
 
   const dagen = Array.from(document.querySelectorAll('.dag-cb:checked')).map(cb => cb.value);
   const splitLines = id => document.getElementById(id).value.split('\n').map(s => s.trim()).filter(Boolean);
@@ -499,8 +515,8 @@ async function slaVacatureOp() {
     duur:           document.getElementById('f-duur').value,
     dagenBeschikbaar: dagen,
     beschrijving,
-    eisen:          splitLines('f-eisen'),
-    aanbod:         splitLines('f-aanbod'),
+    eisen:          [],
+    aanbod:         [],
   };
 
   const btn = document.getElementById('save-btn');
@@ -589,6 +605,9 @@ function voegCustomItemToe(type){
   if(!items.includes(val)){items.push(val);renderTags('f-'+type+'-tags','f-'+type,items);}
   inp.value='';inp.style.display='none';btn.style.display='none';sel.style.display='block';sel.value='';
 }
+
+function execCmd(cmd){document.execCommand(cmd,false,null);document.getElementById('f-beschrijving').focus();}
+function execCmdVal(cmd,val){document.execCommand(cmd,false,val);document.getElementById('f-beschrijving').focus();}
 </script>
 </body>
 </html>
